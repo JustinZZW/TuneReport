@@ -1,0 +1,5 @@
+{
+  "name": "TuneReport AI Parser",
+  "description": "An automated tool to extract, structure, and archive data from instrument PDF reports using Gemini AI.",
+  "requestFramePermissions": []
+}
