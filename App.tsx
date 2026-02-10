@@ -23,6 +23,7 @@ function App() {
   const [listPolarityFilter, setListPolarityFilter] = useState('All');
   const [listStartDate, setListStartDate] = useState('');
   const [listEndDate, setListEndDate] = useState('');
+  const [listSortBy, setListSortBy] = useState<'date-desc' | 'date-asc' | 'type' | 'mass'>('date-desc');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [driveList, setDriveList] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedDriveId, setSelectedDriveId] = useState('');
@@ -504,6 +505,25 @@ function App() {
     return true;
   });
 
+  const sortedReports = useMemo(() => {
+    const sorted = [...filteredReports];
+    sorted.sort((a, b) => {
+      if (listSortBy === 'date-asc' || listSortBy === 'date-desc') {
+        const aTime = new Date(a.reportDate).getTime();
+        const bTime = new Date(b.reportDate).getTime();
+        return listSortBy === 'date-asc' ? aTime - bTime : bTime - aTime;
+      }
+      if (listSortBy === 'type') {
+        return (a.reportType || '').localeCompare(b.reportType || '');
+      }
+      if (listSortBy === 'mass') {
+        return (a.massRange || '').localeCompare(b.massRange || '');
+      }
+      return 0;
+    });
+    return sorted;
+  }, [filteredReports, listSortBy]);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       
@@ -895,7 +915,7 @@ function App() {
           )}
 
           {/* Main View Area */}
-          {reports.length === 0 ? (
+           {reports.length === 0 ? (
             <EmptyState />
           ) : viewMode === 'visualization' ? (
              <VisualizationView reports={filteredReports} />
@@ -907,15 +927,35 @@ function App() {
                  <table className="w-full text-sm text-left">
                    <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                      <tr>
-                       <th className="px-6 py-4">Report File</th>
-                       <th className="px-6 py-4">Date</th>
-                       <th className="px-6 py-4">Type</th>
-                       <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Report File</th>
+                      <th className="px-6 py-4">
+                        <button
+                          onClick={() => setListSortBy(listSortBy === 'date-desc' ? 'date-asc' : 'date-desc')}
+                          className="flex items-center gap-1 text-slate-500 hover:text-blue-600"
+                        >
+                          Date
+                          <span className="text-[10px]">
+                            {listSortBy === 'date-desc' ? '▼' : listSortBy === 'date-asc' ? '▲' : ''}
+                          </span>
+                        </button>
+                      </th>
+                      <th className="px-6 py-4">
+                        <button
+                          onClick={() => setListSortBy('type')}
+                          className="flex items-center gap-1 text-slate-500 hover:text-blue-600"
+                        >
+                          Type
+                          <span className="text-[10px]">
+                            {listSortBy === 'type' ? '▲' : ''}
+                          </span>
+                        </button>
+                      </th>
+                      <th className="px-6 py-4">Status</th>
                        <th className="px-6 py-4 text-right">Actions</th>
                      </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-100">
-                     {filteredReports.map((report) => (
+                     {sortedReports.map((report) => (
                        <tr key={report.id} className="hover:bg-slate-50/50 group transition-colors cursor-pointer" onClick={() => setSelectedReport(report)}>
                          <td className="px-6 py-4">
                            <div className="flex items-center gap-3">
