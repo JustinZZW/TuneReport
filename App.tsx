@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Upload, Database, Plus, Search, Loader2, FileText, BarChart3, Trash2, Table, LayoutList, TrendingUp, RefreshCw, CloudDownload } from 'lucide-react';
 import { InstrumentReport, ProcessingStatus } from './types';
 import { extractTextFromPdf } from './services/pdfService';
@@ -18,6 +18,11 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReport, setSelectedReport] = useState<InstrumentReport | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'summary' | 'visualization'>('list');
+  const [listTypeFilter, setListTypeFilter] = useState('All');
+  const [listRangeFilter, setListRangeFilter] = useState('All');
+  const [listPolarityFilter, setListPolarityFilter] = useState('All');
+  const [listStartDate, setListStartDate] = useState('');
+  const [listEndDate, setListEndDate] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [driveList, setDriveList] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedDriveId, setSelectedDriveId] = useState('');
@@ -462,11 +467,42 @@ function App() {
     }
   };
 
-  const filteredReports = reports.filter(r => 
-    r.fileName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    r.sampleId.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    r.instrumentName.toLowerCase().includes(searchTerm.toLowerCase())
+  const listTypeOptions = useMemo(
+    () => ['All', ...Array.from(new Set(reports.map(r => r.reportType || 'Unknown'))).sort()],
+    [reports]
   );
+  const listRangeOptions = useMemo(
+    () => ['All', ...Array.from(new Set(reports.map(r => r.massRange || 'Unknown'))).sort()],
+    [reports]
+  );
+  const listPolarityOptions = useMemo(
+    () => ['All', ...Array.from(new Set(reports.map(r => r.polarity || 'Unknown'))).sort()],
+    [reports]
+  );
+
+  const getReportDateOnly = (value: string) => value ? value.split(' ')[0] : '';
+
+  const filteredReports = reports.filter(r => {
+    const matchesSearch =
+      r.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.sampleId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.instrumentName.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    const type = r.reportType || 'Unknown';
+    const range = r.massRange || 'Unknown';
+    const polarity = r.polarity || 'Unknown';
+    const dateOnly = getReportDateOnly(r.reportDate);
+
+    if (listTypeFilter !== 'All' && type !== listTypeFilter) return false;
+    if (listRangeFilter !== 'All' && range !== listRangeFilter) return false;
+    if (listPolarityFilter !== 'All' && polarity !== listPolarityFilter) return false;
+    if (listStartDate && dateOnly < listStartDate) return false;
+    if (listEndDate && dateOnly > listEndDate) return false;
+
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans" onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
@@ -786,6 +822,77 @@ function App() {
                 </div>
              </div>
           </div>
+
+          {viewMode === 'list' && (
+            <div className="flex flex-wrap gap-3 items-end bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm">
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</span>
+                <select
+                  className="border border-slate-200 rounded-md px-3 py-2 text-sm"
+                  value={listTypeFilter}
+                  onChange={(e) => setListTypeFilter(e.target.value)}
+                >
+                  {listTypeOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Mass Range</span>
+                <select
+                  className="border border-slate-200 rounded-md px-3 py-2 text-sm"
+                  value={listRangeFilter}
+                  onChange={(e) => setListRangeFilter(e.target.value)}
+                >
+                  {listRangeOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Polarity</span>
+                <select
+                  className="border border-slate-200 rounded-md px-3 py-2 text-sm"
+                  value={listPolarityFilter}
+                  onChange={(e) => setListPolarityFilter(e.target.value)}
+                >
+                  {listPolarityOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Start</span>
+                <input
+                  type="date"
+                  className="border border-slate-200 rounded-md px-3 py-2 text-sm"
+                  value={listStartDate}
+                  onChange={(e) => setListStartDate(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">End</span>
+                <input
+                  type="date"
+                  className="border border-slate-200 rounded-md px-3 py-2 text-sm"
+                  value={listEndDate}
+                  onChange={(e) => setListEndDate(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  setListTypeFilter('All');
+                  setListRangeFilter('All');
+                  setListPolarityFilter('All');
+                  setListStartDate('');
+                  setListEndDate('');
+                }}
+                className="text-xs font-medium text-slate-500 hover:text-blue-600"
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
 
           {/* Main View Area */}
           {reports.length === 0 ? (

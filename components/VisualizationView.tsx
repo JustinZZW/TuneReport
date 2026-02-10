@@ -122,6 +122,13 @@ const SimpleLineChart = ({
     setManualZoom(null);
   };
 
+  const formatYAxisLabel = (value: number) => {
+    if (Math.abs(value) >= 1000) {
+      return `${Math.round(value / 1000).toLocaleString()}K`;
+    }
+    return Math.round(value).toLocaleString();
+  };
+
   const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!plotRef.current) return;
     const rect = plotRef.current.getBoundingClientRect();
@@ -184,6 +191,22 @@ const SimpleLineChart = ({
     setDragEnd(null);
   };
 
+  const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (!visibleData.length) return;
+    event.preventDefault();
+
+    const zoomFactor = event.deltaY > 0 ? 1.1 : 0.9;
+    const center = (yMin + yMax) / 2;
+    const halfRange = ((yMax - yMin) / 2) * zoomFactor;
+
+    setManualZoom({
+      xMinIndex: manualZoom ? manualZoom.xMinIndex : 0,
+      xMaxIndex: manualZoom ? manualZoom.xMaxIndex : data.length - 1,
+      yMin: Math.max(0, center - halfRange),
+      yMax: center + halfRange
+    });
+  };
+
   return (
     <div className="relative w-full" style={{ height: height + 50 }}>
       {/* Title */}
@@ -200,7 +223,20 @@ const SimpleLineChart = ({
         </button>
       )}
 
-      <div className="absolute inset-0 top-6 bottom-6 left-0 right-0" ref={plotRef}>
+      {/* Y-axis labels */}
+      <div className="absolute left-0 top-6 bottom-6 w-12 text-[10px] text-slate-400">
+        {[0, 0.25, 0.5, 0.75, 1].map(tick => (
+          <div
+            key={tick}
+            className="absolute -translate-y-1/2"
+            style={{ top: `${(1 - tick) * 100}%` }}
+          >
+            {formatYAxisLabel(yMin + (yMax - yMin) * tick)}
+          </div>
+        ))}
+      </div>
+
+      <div className="absolute inset-0 top-6 bottom-6 left-12 right-0" ref={plotRef}>
         <svg 
           width="100%" 
           height="100%" 
@@ -271,6 +307,7 @@ const SimpleLineChart = ({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
         />
 
         {dragStart && dragEnd && (
@@ -286,12 +323,13 @@ const SimpleLineChart = ({
         )}
 
         {/* Axis Labels */}
-        <div className="absolute bottom-0 left-0 right-0 translate-y-full flex justify-between text-[10px] text-slate-400 mt-2 px-1">
+          <div className="absolute bottom-0 left-0 right-0 translate-y-full flex justify-between text-[10px] text-slate-400 mt-2 px-1">
             {visibleData.map((d, i) => (
                <div key={i} style={{ 
                   position: 'absolute', 
                   left: `${(i / (visibleData.length - 1 || 1)) * 100}%`, 
-                  transform: 'translateX(-50%)',
+                transform: 'translateX(-50%) rotate(-30deg)',
+                transformOrigin: 'center top',
                   whiteSpace: 'nowrap'
                }}>
                  {d.displayDate}
