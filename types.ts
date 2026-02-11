@@ -18,6 +18,7 @@ export interface InstrumentReport {
   id: string; // UUID for local storage
   fileName: string;
   parsedAt: string;
+  comment?: string;
   
   // Extracted Data
   reportType?: string; // e.g. "TOF Mass Calibration" (From filename or First line)

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { InstrumentReport, ResultItem } from '../types';
 import { FileText, CheckCircle, XCircle, AlertCircle, Calendar, Microscope, Beaker, Table2, Layers, Gauge, Activity, Zap } from 'lucide-react';
 import clsx from 'clsx';
@@ -7,9 +7,12 @@ interface ReportCardProps {
   report: InstrumentReport;
   onClose: () => void;
   onDelete: (id: string) => void;
+  onUpdateComment: (id: string, comment: string) => Promise<void> | void;
 }
 
-const ReportCard: React.FC<ReportCardProps> = ({ report, onClose, onDelete }) => {
+const ReportCard: React.FC<ReportCardProps> = ({ report, onClose, onDelete, onUpdateComment }) => {
+  const [commentDraft, setCommentDraft] = useState(report.comment || '');
+  const [isEditingComment, setIsEditingComment] = useState(false);
   
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -48,7 +51,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onClose, onDelete }) =>
                {report.fileName}
             </h2>
             <p className="text-sm text-slate-500 flex items-center gap-1 mt-1">
-              Sample ID: <span className="font-medium text-slate-700">{report.sampleId}</span>
+              Sample: <span className="font-medium text-slate-700">Agilent Tune Mix</span>
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1">
@@ -115,6 +118,57 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onClose, onDelete }) =>
             <p className="text-sm text-slate-600 bg-blue-50/50 p-4 rounded-lg border border-blue-100 leading-relaxed">
               {report.summary}
             </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-slate-900">Comment</h3>
+              {!isEditingComment && (
+                <button
+                  onClick={() => {
+                    setCommentDraft(report.comment || '');
+                    setIsEditingComment(true);
+                  }}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            {isEditingComment ? (
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <textarea
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-700 resize-y"
+                  rows={3}
+                  value={commentDraft}
+                  onChange={(e) => setCommentDraft(e.target.value)}
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={async () => {
+                      await onUpdateComment(report.id, commentDraft);
+                      setIsEditingComment(false);
+                    }}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCommentDraft(report.comment || '');
+                      setIsEditingComment(false);
+                    }}
+                    className="text-xs font-medium text-slate-500 hover:text-slate-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                {report.comment ? report.comment : 'No comment added.'}
+              </div>
+            )}
           </div>
 
           {/* TOF Calibration Table */}

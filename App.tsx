@@ -24,6 +24,8 @@ function App() {
   const [listStartDate, setListStartDate] = useState('');
   const [listEndDate, setListEndDate] = useState('');
   const [listSortBy, setListSortBy] = useState<'date-desc' | 'date-asc' | 'type' | 'mass'>('date-desc');
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [commentDraft, setCommentDraft] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [driveList, setDriveList] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedDriveId, setSelectedDriveId] = useState('');
@@ -144,7 +146,40 @@ function App() {
     }
   }, [driveFolderId, storeResultsToDrive]);
 
-  const processFiles = useCallback(async (files: FileList | File[]) => {
+  const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  };
+
+  const uploadPdfToDrive = useCallback(async (file: File) => {
+    if (!driveFolderId) return;
+
+    const buffer = await file.arrayBuffer();
+    const base64 = arrayBufferToBase64(buffer);
+
+    const response = await fetch(
+      `/api/drive/upload-pdf?folderId=${encodeURIComponent(driveFolderId)}&fileName=${encodeURIComponent(file.name)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ base64 })
+      }
+    );
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error || 'Failed to save PDF to Drive.');
+    }
+  }, [driveFolderId]);
+
+  const processFiles = useCallback(async (files: FileList | File[], source: 'local' | 'drive' = 'local') => {
     const fileArray = Array.from(files);
     const validFiles = fileArray.filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
 
@@ -178,6 +213,7 @@ function App() {
         const newReport: InstrumentReport = {
           id: crypto.randomUUID(),
           parsedAt: new Date().toLocaleString(),
+          comment: '',
           
           reportType: fileMetadata.reportType || extractedData.reportType || "Unknown Type",
           massRange: fileMetadata.massRange || extractedData.massRange,
@@ -200,6 +236,9 @@ function App() {
         };
 
         setReports(prev => [newReport, ...prev]);
+        if (source === 'local') {
+          await uploadPdfToDrive(file);
+        }
         await uploadResultToDrive(newReport);
         successCount++;
       } catch (err: any) {
@@ -223,7 +262,7 @@ function App() {
 
     setStatus(ProcessingStatus.COMPLETED);
     setTimeout(() => setStatus(ProcessingStatus.IDLE), 2000);
-  }, [uploadResultToDrive]);
+  }, [uploadPdfToDrive, uploadResultToDrive]);
 
   const fetchDriveList = useCallback(async () => {
     try {
@@ -340,7 +379,7 @@ function App() {
         return new File([blob], file.name, { type: 'application/pdf' });
       }));
 
-      await processFiles(downloadedFiles);
+      await processFiles(downloadedFiles, 'drive');
       setLastDriveSync(new Date().toLocaleString());
     } catch (error: any) {
       setDriveError(error?.message || 'Drive sync failed.');
@@ -449,7 +488,7 @@ function App() {
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      processFiles(e.target.files);
+      processFiles(e.target.files, 'local');
     }
   };
 
@@ -457,7 +496,7 @@ function App() {
     e.preventDefault();
     e.stopPropagation();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processFiles(e.dataTransfer.files);
+      processFiles(e.dataTransfer.files, 'local');
     }
   };
 
@@ -465,6 +504,22 @@ function App() {
     if (confirm("Are you sure you want to delete this record?")) {
       setReports(prev => prev.filter(r => r.id !== id));
       if (selectedReport?.id === id) setSelectedReport(null);
+    }
+  };
+
+  const handleUpdateComment = async (id: string, comment: string) => {
+    const existingReport = reports.find(report => report.id === id);
+    if (!existingReport) return;
+
+    const updatedReport = { ...existingReport, comment };
+    setReports(prev => prev.map(report => (
+      report.id === id ? updatedReport : report
+    )));
+
+    try {
+      await uploadResultToDrive(updatedReport);
+    } catch (error) {
+      console.error('Failed to save comment to Drive:', error);
     }
   };
 
@@ -951,7 +1006,8 @@ function App() {
                         </button>
                       </th>
                       <th className="px-6 py-4">Status</th>
-                       <th className="px-6 py-4 text-right">Actions</th>
+                      <th className="px-6 py-4">Comment</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
                      </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-100">
@@ -964,7 +1020,7 @@ function App() {
                              </div>
                              <div>
                                <div className="font-semibold text-slate-900">{report.fileName}</div>
-                               <div className="text-xs text-slate-500">Sample: {report.sampleId}</div>
+                              <div className="text-xs text-slate-500">Sample: Agilent Tune Mix</div>
                              </div>
                            </div>
                          </td>
@@ -983,6 +1039,59 @@ function App() {
                               {report.overallStatus}
                             </span>
                          </td>
+                         <td className="px-6 py-4">
+                           {editingCommentId === report.id ? (
+                             <div className="flex flex-col gap-2">
+                               <textarea
+                                 className="w-full min-w-[180px] border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-700 resize-y"
+                                 rows={2}
+                                 placeholder="Add comment..."
+                                 value={commentDraft}
+                                 onClick={(e) => e.stopPropagation()}
+                                 onChange={(e) => setCommentDraft(e.target.value)}
+                               />
+                               <div className="flex gap-2">
+                                 <button
+                                   onClick={async (e) => {
+                                     e.stopPropagation();
+                                     await handleUpdateComment(report.id, commentDraft);
+                                     setEditingCommentId(null);
+                                     setCommentDraft('');
+                                   }}
+                                   className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                                 >
+                                   Save
+                                 </button>
+                                 <button
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     setEditingCommentId(null);
+                                     setCommentDraft('');
+                                   }}
+                                   className="text-xs font-medium text-slate-500 hover:text-slate-700"
+                                 >
+                                   Cancel
+                                 </button>
+                               </div>
+                             </div>
+                           ) : (
+                             <div className="flex items-start justify-between gap-3">
+                               <span className="text-xs text-slate-600 line-clamp-2">
+                                 {report.comment ? report.comment : '—'}
+                               </span>
+                               <button
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   setEditingCommentId(report.id);
+                                   setCommentDraft(report.comment || '');
+                                 }}
+                                 className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                               >
+                                 Edit
+                               </button>
+                             </div>
+                           )}
+                         </td>
                          <td className="px-6 py-4 text-right">
                            <button 
                              onClick={(e) => { e.stopPropagation(); handleDelete(report.id); }}
@@ -993,9 +1102,9 @@ function App() {
                          </td>
                        </tr>
                      ))}
-                     {filteredReports.length === 0 && (
+                    {filteredReports.length === 0 && (
                        <tr>
-                         <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                        <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                            No reports match your search.
                          </td>
                        </tr>
@@ -1014,6 +1123,7 @@ function App() {
           report={selectedReport} 
           onClose={() => setSelectedReport(null)} 
           onDelete={handleDelete}
+          onUpdateComment={handleUpdateComment}
         />
       )}
 

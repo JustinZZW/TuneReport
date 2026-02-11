@@ -43,6 +43,7 @@ export const CalibrationSummary: React.FC<CalibrationSummaryProps> = ({ reports 
           ...row,
           fileName: report.fileName,
           date: report.reportDate,
+          comment: report.comment || '',
           // Store these for CSV export convenience, even if implied by group
           polarity: report.polarity, 
           massRange: report.massRange,
@@ -88,8 +89,9 @@ export const CalibrationSummary: React.FC<CalibrationSummaryProps> = ({ reports 
 
     const headers = [
       "Report Type", "Mass Range", "Polarity", 
-      "File Name", "Date", 
-      "Ref Mass", "Measured Mass", "Diff", "Intensity", "Resolution", "MCP"
+      "File Name", "Date",
+      "Ref Mass", "Measured Mass", "Diff", "Intensity", "Resolution", "MCP",
+      "Comment"
     ];
 
     const allRows = Object.values(groupedData).flatMap(group => 
@@ -104,7 +106,8 @@ export const CalibrationSummary: React.FC<CalibrationSummaryProps> = ({ reports 
         escapeCsvValue(row.diff),
         escapeCsvValue(row.intensity),
         escapeCsvValue(row.resolution),
-        escapeCsvValue(row.mcp)
+        escapeCsvValue(row.mcp),
+        escapeCsvValue(row.comment)
       ])
     );
     
@@ -178,6 +181,7 @@ export const CalibrationSummary: React.FC<CalibrationSummaryProps> = ({ reports 
                     <th className="px-4 py-3 whitespace-nowrap bg-slate-100">Intensity</th>
                     <th className="px-4 py-3 whitespace-nowrap bg-slate-100">Resolution</th>
                     <th className="px-4 py-3 whitespace-nowrap bg-slate-100">MCP</th>
+                    <th className="px-4 py-3 whitespace-nowrap bg-slate-100">Comment</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -193,6 +197,7 @@ export const CalibrationSummary: React.FC<CalibrationSummaryProps> = ({ reports 
                       <td className="px-4 py-2 text-slate-500">{row.intensity}</td>
                       <td className="px-4 py-2 text-slate-500">{row.resolution}</td>
                       <td className="px-4 py-2 text-slate-500">{row.mcp}</td>
+                      <td className="px-4 py-2 text-slate-500 max-w-[200px] truncate" title={row.comment || ''}>{row.comment || '-'}</td>
                     </tr>
                   ))}
                 </tbody>
