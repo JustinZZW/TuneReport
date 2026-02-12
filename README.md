@@ -15,7 +15,7 @@
 
 </div>
 
-TuneReport AI Parser is a Vite + React app that ingests instrument PDF reports, extracts structured
+[TuneReport AI Parser](https://tunereport-ai-parser.vercel.app/) is a Vite + React app that ingests instrument PDF reports, extracts structured
 metadata with Gemini, and visualizes QTOF instrument status trends. It supports Google Drive sync for both
 raw PDFs and parsed JSON results, allowing state to persist across deployments.
 
@@ -40,7 +40,7 @@ raw PDFs and parsed JSON results, allowing state to persist across deployments.
 ## Key Screens
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" width="900" alt="UI Overview" />
+  <img src="https://raw.githubusercontent.com/JustinZZW/blogImg/main/202602120913049.png" width="900" alt="UI Overview" />
 </div>
 
 ## Implementation Notes

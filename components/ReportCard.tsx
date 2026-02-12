@@ -13,6 +13,39 @@ interface ReportCardProps {
 const ReportCard: React.FC<ReportCardProps> = ({ report, onClose, onDelete, onUpdateComment }) => {
   const [commentDraft, setCommentDraft] = useState(report.comment || '');
   const [isEditingComment, setIsEditingComment] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  const handleCopyCalibrationColumns = async () => {
+    if (!report.tofCalibrationData || report.tofCalibrationData.length === 0) {
+      setCopyStatus('error');
+      return;
+    }
+
+    const toKValue = (rawValue: string | undefined) => {
+      if (!rawValue) return '';
+      const numeric = Number(rawValue.replace(/,/g, ''));
+      if (Number.isNaN(numeric)) return '';
+      return String(Math.round(numeric / 1000));
+    };
+
+    const lines = report.tofCalibrationData.map(row => {
+      const intensity = toKValue(row.intensity);
+      const resolution = toKValue(row.resolution);
+      return `${intensity}\t${resolution}`;
+    });
+
+    const payload = `Abundance(k)\tResolution(k)\n${lines.join('\n')}`.trim();
+
+    try {
+      await navigator.clipboard.writeText(payload);
+      setCopyStatus('copied');
+      setTimeout(() => setCopyStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Failed to copy calibration columns', error);
+      setCopyStatus('error');
+      setTimeout(() => setCopyStatus('idle'), 2000);
+    }
+  };
   
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -174,10 +207,18 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onClose, onDelete, onUp
           {/* TOF Calibration Table */}
           {report.tofCalibrationData && report.tofCalibrationData.length > 0 && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                 <Table2 className="w-4 h-4 text-blue-500" />
-                 TOF Mass Calibration Data
-               </h3>
+               <div className="flex items-center justify-between mb-3">
+                 <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                   <Table2 className="w-4 h-4 text-blue-500" />
+                   TOF Mass Calibration Data
+                 </h3>
+                 <button
+                   onClick={handleCopyCalibrationColumns}
+                   className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                 >
+                   {copyStatus === 'copied' ? 'Copied' : copyStatus === 'error' ? 'Copy failed' : 'Copy Intensity + Resolution'}
+                 </button>
+               </div>
                <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
                  <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
